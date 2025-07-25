@@ -1,0 +1,6 @@
+{
+  "name": "Interactive Story Builder",
+  "description": "Create a unique story step-by-step. You provide the hero and the setting, then guide the narrative by making choices. The AI storyteller builds the world around your decisions.",
+  "requestFramePermissions": [],
+  "prompt": ""
+}
