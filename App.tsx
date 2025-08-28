@@ -1,3 +1,4 @@
+
 import React, { useState, useRef, useCallback } from 'react';
 import { GoogleGenAI, Chat } from '@google/genai';
 import type { StoryPart, GameState } from './types';
@@ -66,7 +67,7 @@ export default function App() {
     try {
       const imagePrompt = `A vivid, digital painting in a storybook style, depicting the following scene: ${storyText}. The image should be rich in detail, with a sense of wonder and adventure. Cinematic lighting.`;
       const response = await ai.models.generateImages({
-        model: 'imagen-3.0-generate-002',
+        model: 'imagen-4.0-generate-001',
         prompt: imagePrompt,
         config: {
           numberOfImages: 1,
@@ -190,7 +191,7 @@ export default function App() {
   };
 
   return (
-    <div className="font-sans text-stone-800 dark:text-stone-200 min-h-screen flex flex-col items-center p-4 sm:p-6 md:p-8">
+    <div className={`font-sans text-stone-800 dark:text-stone-200 min-h-screen flex flex-col items-center p-4 sm:p-6 md:p-8 transition-all duration-500 ${gameState === 'SETUP' ? 'justify-center' : ''}`}>
       <header className="w-full max-w-3xl mb-6 flex items-center justify-between">
         <div className="flex items-center space-x-3">
           <BookIcon className="w-8 h-8 text-amber-600 dark:text-amber-400" />
