@@ -1,6 +1,7 @@
 
 import React, { useState, useRef, useCallback } from 'react';
 import { GoogleGenAI, Chat } from '@google/genai';
+import { motion, AnimatePresence } from 'motion/react';
 import type { StoryPart, GameState } from './types';
 import { SetupForm } from './components/SetupForm';
 import { ChatWindow } from './components/ChatWindow';
@@ -65,18 +66,22 @@ export default function App() {
   const generateImage = useCallback(async (storyText: string): Promise<string | null> => {
     if (!ai) return null;
     try {
-      const imagePrompt = `A vivid, digital painting in a storybook style, depicting the following scene: ${storyText}. The image should be rich in detail, with a sense of wonder and adventure. Cinematic lighting.`;
-      const response = await ai.models.generateImages({
-        model: 'imagen-4.0-generate-001',
-        prompt: imagePrompt,
+      const imagePrompt = `A breathtaking, high-detail cinematic illustration in a vivid storybook style: ${storyText}. Wide-angle masterpiece, rich atmospheric lighting, epic composition, vibrant colors, 8k resolution, magical atmosphere.`;
+      const response = await ai.models.generateContent({
+        model: 'gemini-2.5-flash-image',
+        contents: {
+          parts: [{ text: imagePrompt }],
+        },
         config: {
-          numberOfImages: 1,
-          outputMimeType: 'image/jpeg',
-          aspectRatio: '16:9',
+          imageConfig: {
+            aspectRatio: '16:9',
+          },
         },
       });
-      const base64Image = response.generatedImages[0]?.image?.imageBytes;
-      return base64Image ? `data:image/jpeg;base64,${base64Image}` : null;
+
+      const entry = response.candidates?.[0]?.content?.parts?.find(p => p.inlineData);
+      const base64Image = entry?.inlineData?.data;
+      return base64Image ? `data:image/png;base64,${base64Image}` : null;
     } catch (error) {
       console.error("Failed to generate image:", error);
       return null;
@@ -108,19 +113,26 @@ export default function App() {
     setGameState('LOADING');
     try {
       const chat = ai.chats.create({
-        model: 'gemini-2.5-flash',
+        model: 'gemini-3-flash-preview',
         config: { systemInstruction: SYSTEM_INSTRUCTION },
       });
       chatRef.current = chat;
       
       const initialPrompt = `Start a story with protagonist: ${protagonist}. The setting is: ${setting}.`;
-      const firstUserMessage: StoryPart = {
-        id: crypto.randomUUID(),
-        type: 'system',
-        content: `Once upon a time, in ${setting}, lived ${protagonist}...`,
+      
+      const setupMessage: StoryPart = { 
+        id: crypto.randomUUID(), 
+        type: 'system', 
+        content: `Once upon a time, your journey begins: ${protagonist} in ${setting}.`,
+        imageLoading: true 
       };
       const initialAiMessage: StoryPart = { id: crypto.randomUUID(), type: 'ai', content: '' };
-      setStoryHistory([firstUserMessage, initialAiMessage]);
+      setStoryHistory([setupMessage, initialAiMessage]);
+
+      // Generate background image for the setting immediately
+      generateImage(`A wide panoramic cinematic view of the setting: ${setting}. Atmospheric, epic, and beautiful storybook landscape.`).then(url => {
+        setStoryHistory(prev => prev.map(p => p.id === setupMessage.id ? { ...p, imageUrl: url ?? undefined, imageLoading: false } : p));
+      });
 
       const stream = await chat.sendMessageStream({ message: initialPrompt });
       await processAIResponse(stream, initialAiMessage.id);
@@ -129,7 +141,7 @@ export default function App() {
       console.error("Failed to start story:", error);
       setGameState('ERROR');
     }
-  }, [protagonist, setting, processAIResponse]);
+  }, [protagonist, setting, processAIResponse, generateImage]);
 
   const handleSelectChoice = useCallback(async (choiceText: string, choiceIndex: number) => {
     if (!chatRef.current) return;
@@ -191,27 +203,47 @@ export default function App() {
   };
 
   return (
-    <div className={`font-sans text-stone-800 dark:text-stone-200 min-h-screen flex flex-col items-center p-4 sm:p-6 md:p-8 transition-all duration-500 ${gameState === 'SETUP' ? 'justify-center' : ''}`}>
-      <header className="w-full max-w-3xl mb-6 flex items-center justify-between">
-        <div className="flex items-center space-x-3">
+    <div className={`font-sans text-stone-800 dark:text-stone-200 min-h-screen flex flex-col items-center p-4 sm:p-6 md:p-8 transition-all duration-700 ${gameState === 'SETUP' ? 'bg-stone-50 dark:bg-stone-950 justify-center' : 'bg-stone-100 dark:bg-stone-900'}`}>
+      <header className="w-full max-w-4xl mb-6 flex items-center justify-between">
+        <motion.div 
+          initial={{ opacity: 0, x: -20 }}
+          animate={{ opacity: 1, x: 0 }}
+          className="flex items-center space-x-3"
+        >
           <BookIcon className="w-8 h-8 text-amber-600 dark:text-amber-400" />
-          <h1 className="text-3xl sm:text-4xl font-bold text-stone-900 dark:text-stone-100 tracking-tight">
-            Interactive Story Builder
+          <h1 className="text-3xl sm:text-4xl font-bold text-stone-900 dark:text-stone-100 tracking-tight font-serif">
+            Chronicle AI
           </h1>
-        </div>
-        {(gameState === 'STORY' || gameState === 'LOADING') && (
-          <button
+        </motion.div>
+
+        {gameState !== 'SETUP' && (
+          <motion.button
+            initial={{ opacity: 0, scale: 0.8 }}
+            animate={{ opacity: 1, scale: 1 }}
+            whileHover={{ scale: 1.05 }}
+            whileTap={{ scale: 0.95 }}
             onClick={handleReset}
-            aria-label="Start a new story"
-            className="flex items-center space-x-2 px-3 py-2 text-sm font-medium text-stone-600 dark:text-stone-300 bg-white dark:bg-stone-800 border border-stone-300 dark:border-stone-600 rounded-lg hover:bg-stone-100 dark:hover:bg-stone-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-stone-50 dark:focus:ring-offset-stone-900 focus:ring-amber-500 transition-colors"
+            className="flex items-center space-x-2 px-4 py-2 bg-white dark:bg-stone-800 rounded-full shadow-sm border border-stone-200 dark:border-stone-700 text-stone-600 dark:text-stone-300 hover:text-amber-600 dark:hover:text-amber-400 transition-colors"
           >
             <RestartIcon className="w-4 h-4" />
-            <span>New Story</span>
-          </button>
+            <span className="text-sm font-medium">New Story</span>
+          </motion.button>
         )}
       </header>
-      <main className="w-full max-w-3xl">
-        {renderContent()}
+
+      <main className="w-full max-w-4xl flex-1 flex flex-col">
+        <AnimatePresence mode="wait">
+          <motion.div
+            key={gameState === 'SETUP' ? 'setup' : 'story'}
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -20 }}
+            transition={{ duration: 0.5 }}
+            className="flex-1 flex flex-col"
+          >
+            {renderContent()}
+          </motion.div>
+        </AnimatePresence>
       </main>
     </div>
   );
