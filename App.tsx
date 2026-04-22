@@ -7,7 +7,8 @@ import { SetupForm } from './components/SetupForm';
 import { ChatWindow } from './components/ChatWindow';
 import { BookIcon, RestartIcon } from './components/Icons';
 
-const API_KEY = process.env.API_KEY;
+// Use the injected key from Vite define or standard process.env
+const API_KEY = process.env.GEMINI_API_KEY || process.env.API_KEY;
 
 // Create the AI client instance once.
 const ai = API_KEY ? new GoogleGenAI({ apiKey: API_KEY }) : null;
